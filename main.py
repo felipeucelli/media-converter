@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+
+# @autor: Felipe Ucelli
+# @github: github.com/felipeucelli
+
+# Built-in
 import tkinter
 from tkinter import filedialog, messagebox
 from _thread import start_new_thread
@@ -18,6 +24,10 @@ class Convert:
         self._interface()
 
     def _interface(self):
+        """
+        Configure the buttons and interface label
+        :return:
+        """
         self.canvas_main = tkinter.Canvas(self.root, width=440, height=390)
         self.message_name_file = tkinter.Message(self.canvas_main, font='Arial 10', width=350)
         self.canvas_main.create_window(220, 50, window=self.message_name_file)
@@ -34,24 +44,46 @@ class Convert:
         self.canvas_main.pack()
 
     def _block_interface(self):
+        """
+        Lock the interface
+        :return:
+        """
         self.btn_open_file['state'] = 'disable'
         self.btn_convert['state'] = 'disable'
 
     def _unblock_interface(self):
+        """
+        Unlock the interface
+        :return:
+        """
         self.btn_open_file['state'] = 'normal'
         self.btn_convert['state'] = 'normal'
 
     def _start_download(self):
+        """
+        Configures the interface to start the download
+        :return:
+        """
         self._block_interface()
         self.label_convert_status['text'] = 'Converting file, Please wait.'
 
     def _download_finished(self):
+        """
+        Reset the interface
+        :return:
+        """
         messagebox.showinfo('Info', 'Convert Finished')
         self._unblock_interface()
         self.label_convert_status['text'] = ''
         self.label_count_file['text'] = ''
 
     def mp4_to_mp3(self, mp4, mp3):
+        """
+        Convert mp4 to mp3 using moviepy library
+        :param mp4: File to be converted
+        :param mp3: Archive generated after conversion
+        :return:
+        """
         self._start_download()
         try:
             if type(mp4) == str:
@@ -76,6 +108,10 @@ class Convert:
             self._unblock_interface()
 
     def open_file(self):
+        """
+        Opens a box to select files
+        :return:
+        """
         path = filedialog.askopenfilenames(filetypes=(('Mp4 files', '*.mp4'),
                                                       ('All files', '*.*')))
         if path != '' and path != ():
@@ -85,6 +121,10 @@ class Convert:
             self.btn_convert['state'] = 'normal'
 
     def _convert(self):
+        """
+        Check how many files will be converted. And starts the thread for each type
+        :return:
+        """
         if len(self.file_path) == 1:
             save_file = filedialog.asksaveasfilename(defaultextension="mp3",
                                                      initialfile=self.file_name.replace('.mp4', '.mp3'))
@@ -97,12 +137,21 @@ class Convert:
 
     @staticmethod
     def get_name_file(path):
+        """
+        Get the filename in the selected path
+        :param path: Selected path
+        :return: File name
+        """
         if type(path) == tuple:
             return f'{path[0].split("/")[len(path[0].split("/")) - 1]}'
         else:
             return f'{path.split("/")[len(path.split("/")) - 1]}'
 
     def start(self):
+        """
+        Start tkinter mainloop
+        :return:
+        """
         self.root.mainloop()
 
 
