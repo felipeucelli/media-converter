@@ -8,6 +8,7 @@ from moviepy.audio.io.AudioFileClip import AudioFileClip
 class Convert:
     def __init__(self):
         self.root = tkinter.Tk()
+        self.root.title('Video to Audio Convert')
         self.root.geometry('450x400')
         self.root.resizable(False, False)
 
