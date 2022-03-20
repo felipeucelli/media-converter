@@ -5,149 +5,291 @@
 
 # Built-in
 import tkinter
-from tkinter import filedialog, messagebox
 from _thread import start_new_thread
+from tkinter import filedialog, messagebox, ttk
 
+from proglog import TqdmProgressBarLogger
+from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.audio.io.AudioFileClip import AudioFileClip
 
 
-class Convert:
+class Gui:
     def __init__(self):
         self.root = tkinter.Tk()
-        self.root.title('Video to Audio Convert')
-        self.root.geometry('450x400')
+        self.root.title('Media Converter')
+        self.root.geometry('750x425')
         self.root.resizable(False, False)
 
-        self.file_path = ''
-        self.file_name = ''
+        self.file_path = []
+        self.file_extension = ''
+        self.status_convert = True
+
+        self.variable_out_file = tkinter.IntVar()
+
+        self.style_root = ttk.Style(self.root)
+        self.style_root.configure('TButton', font=('Arial', 15))
+        self.style_root.configure('btn.TButton', font=('Arial', 10))
+        self.style_root.configure('TRadiobutton', font=('Arial', 15))
+        self.style_root.map('btn_stop_convert.TButton', foreground=[('!disabled', 'red'), ('disabled', 'grey')])
+        self.style_root.map('btn_start_convert.TButton', foreground=[('!disabled', 'green'), ('disabled', 'grey')])
 
         self._interface()
 
     def _interface(self):
         """
-        Configure the buttons and interface label
+        Configuring the interface widgets
         :return:
         """
-        self.canvas_main = tkinter.Canvas(self.root, width=440, height=390)
-        self.message_name_file = tkinter.Message(self.canvas_main, font='Arial 10', width=350)
-        self.canvas_main.create_window(220, 50, window=self.message_name_file)
-        self.label_count_file = tkinter.Label(self.canvas_main, font='Arial 15')
-        self.canvas_main.create_window(220, 130, window=self.label_count_file)
-        self.btn_open_file = tkinter.Button(self.canvas_main, font='Arial 15', text='OPEN FILE',
-                                            command=self.open_file)
-        self.canvas_main.create_window(220, 220, window=self.btn_open_file)
-        self.btn_convert = tkinter.Button(self.canvas_main, font='Arial 15', text=' CONVERT ', command=self._convert)
-        self.canvas_main.create_window(220, 280, window=self.btn_convert)
-        self.btn_convert['state'] = 'disable'
-        self.label_convert_status = tkinter.Label(self.canvas_main, font='Arial 15', fg='green')
-        self.canvas_main.create_window(220, 350, window=self.label_convert_status)
-        self.canvas_main.pack()
+        self.frame_main = tkinter.Frame(self.root, width=540, height=520)
+        self.frame_main.pack(padx=5, pady=5, )
 
-    def _block_interface(self):
+        self.frame_convert = tkinter.LabelFrame(self.frame_main, width=540, height=520)
+        self.frame_convert.pack()
+
+        # File selection frame
+        self.frame_add = tkinter.Frame(self.frame_convert, width=540, height=100)
+        self.frame_add.pack(fill='both', padx=5, pady=5)
+
+        self.btn_add = ttk.Button(self.frame_add, text='ADD FILE', command=self.open_file)
+        self.btn_add.pack(pady=15, padx=15, side='left')
+
+        self.radio_bnt_mp3 = ttk.Radiobutton(self.frame_add, text='MP3', variable=self.variable_out_file, value=1)
+        self.radio_bnt_mp3.pack(side='right', padx=15)
+
+        self.radio_bnt_mp4 = ttk.Radiobutton(self.frame_add, text='MP4', variable=self.variable_out_file, value=2)
+        self.radio_bnt_mp4.pack(side='right', padx=15)
+
+        self.label_out_file = tkinter.Label(self.frame_add, font='arial 12', text='OUTPUT: ')
+        self.label_out_file.pack(side='right', padx=15)
+
+        # Frame listbox
+        self.frame_list_box = tkinter.Frame(self.frame_convert, width=540, height=200)
+        self.frame_list_box.pack(fill='both', pady=5, padx=5)
+
+        list_playlist_scrollbar_y = tkinter.Scrollbar(self.frame_list_box, orient='vertical')
+        list_playlist_scrollbar_y.pack(side="right", fill="y")
+
+        list_playlist_scrollbar_x = tkinter.Scrollbar(self.frame_list_box, orient='horizontal')
+        list_playlist_scrollbar_x.pack(side="bottom", fill="x")
+
+        self.list_box_files = tkinter.Listbox(self.frame_list_box, width=540, height=8, font='arial 15',
+                                              yscrollcommand=list_playlist_scrollbar_y.set,
+                                              xscrollcommand=list_playlist_scrollbar_x.set, activestyle='none')
+        self.list_box_files.pack()
+        list_playlist_scrollbar_y.config(command=self.list_box_files.yview)
+        list_playlist_scrollbar_x.config(command=self.list_box_files.xview)
+
+        # Progress bar frame
+        self.frame_progress_bar = tkinter.Frame(self.frame_convert, width=540, height=50)
+        self.frame_progress_bar.pack(fill='both', pady=5, padx=5)
+
+        self.progress_bar = ttk.Progressbar(self.frame_progress_bar, orient=tkinter.HORIZONTAL,
+                                            mode='determinate', length=280)
+        self.progress_bar.pack()
+
+        # Conversion buttons and listbox frame
+        self.frame_convert = tkinter.Frame(self.frame_convert, width=540, height=120)
+        self.frame_convert.pack(fill='both', pady=5, padx=5)
+
+        self.btn_clear = ttk.Button(self.frame_convert, text='CLEAR', command=self.clear_list_box)
+        self.btn_clear.pack(anchor='nw', side='left', pady=20, padx=5)
+        self.btn_clear.config(state=tkinter.DISABLED)
+
+        self.btn_remove = ttk.Button(self.frame_convert, text='REMOVE', command=self.remove_item_list_box)
+        self.btn_remove.pack(anchor='nw', side='left', pady=20, padx=5)
+        self.btn_remove.config(state=tkinter.DISABLED)
+
+        self.btn_start_convert = ttk.Button(self.frame_convert, text='CONVERT', command=self.convert,
+                                            style='btn_start_convert.TButton')
+        self.btn_start_convert.pack(anchor='ne', side='right', pady=20, padx=5)
+        self.btn_start_convert.config(state=tkinter.DISABLED)
+
+        self.btn_stop_convert = ttk.Button(self.frame_convert, text='STOP', command=self.cancel_convert,
+                                           style='btn_stop_convert.TButton')
+        self.btn_stop_convert.pack(anchor='ne', side='right', pady=20, padx=5)
+        self.btn_stop_convert.config(state=tkinter.DISABLED)
+
+    def change_interface_status(self, status: str):
         """
-        Lock the interface
+        Change the status of interface buttons
         :return:
         """
-        self.btn_open_file['state'] = 'disable'
-        self.btn_convert['state'] = 'disable'
+        self.btn_add['state'] = status
+        self.radio_bnt_mp4['state'] = status
+        self.radio_bnt_mp3['state'] = status
+        self.btn_start_convert['state'] = status
+        self.btn_remove['state'] = status
+        self.btn_clear['state'] = status
+        self.btn_stop_convert['state'] = 'enable' if status == 'disable' else 'disable'
 
-    def _unblock_interface(self):
+    def _start_conversion(self):
         """
-        Unlock the interface
+        Configures the interface to start the conversion
         :return:
         """
-        self.btn_open_file['state'] = 'normal'
-        self.btn_convert['state'] = 'normal'
+        self.status_convert = True
+        for pos, value in enumerate(self.file_path):
+            self.list_box_files.itemconfig(pos, fg='black')
+        self.change_interface_status('disable')
 
-    def _start_download(self):
-        """
-        Configures the interface to start the download
-        :return:
-        """
-        self._block_interface()
-        self.label_convert_status['text'] = 'Converting file, Please wait.'
-
-    def _download_finished(self):
+    def _conversion_finished(self):
         """
         Reset the interface
         :return:
         """
-        messagebox.showinfo('Info', 'Convert Finished')
-        self._unblock_interface()
-        self.label_convert_status['text'] = ''
-        self.label_count_file['text'] = ''
+        messagebox.showinfo('Info', 'Conversion Finished')
+        self.change_interface_status('normal')
+        self.set_progress_callback(percent='0')
 
-    def mp4_to_mp3(self, mp4, mp3):
+        self.btn_stop_convert['state'] = 'disable'
+        self.btn_stop_convert['text'] = 'STOP'
+        self.status_convert = True
+
+    @staticmethod
+    def to_mp4(file_in: str, file_out: str) -> '.mp4 file':
         """
-        Convert mp4 to mp3 using moviepy library
-        :param mp4: File to be converted
-        :param mp3: Archive generated after conversion
+        Convert video files using moviepy library
+        :param file_in: Full path of the file to be converted
+        :param file_out: Output file full path
         :return:
         """
-        self._start_download()
-        try:
-            if type(mp4) == str:
-                mp4_without_frames = AudioFileClip(mp4)
-                mp4_without_frames.write_audiofile(mp3)
-                mp4_without_frames.close()
-                self._download_finished()
-            elif type(mp4) == tuple:
-                count = 0
-                for file in mp4:
-                    self.label_count_file['text'] = f'{count}/{len(mp4)}'
-                    file_name = self.get_name_file(file)
-                    self.message_name_file['text'] = file_name
-                    mp4_without_frames = AudioFileClip(file)
-                    mp4_without_frames.write_audiofile(f'{mp3}/{file_name.replace(".mp4", ".mp3")}')
-                    mp4_without_frames.close()
-                    count += 1
-                    self.label_count_file['text'] = f'{count}/{len(mp4)}'
-                self._download_finished()
-        except Exception as error:
-            messagebox.showerror('Error', error)
-            self._unblock_interface()
+        mp4_without_frames = VideoFileClip(file_in)
+        mp4_without_frames.write_videofile(file_out, verbose=False, logger=main)
+        mp4_without_frames.close()
+
+    @staticmethod
+    def to_mp3(file_in: str, file_out: str) -> '.mp3 file':
+        """
+        Convert audio files using moviepy library
+        :param file_in: Full path of the file to be converted
+        :param file_out: Output file full path
+        :return:
+        """
+        without_frames = AudioFileClip(file_in)
+        without_frames.write_audiofile(file_out, verbose=False, logger=main)
+        without_frames.close()
+
+    def remove_item_list_box(self):
+        """
+        Removes selected items in the listbox
+        :return:
+        """
+        pos = self.list_box_files.curselection()
+        if pos != ():
+            self.list_box_files.delete(pos)
+            self.file_path.pop(pos[0])
+
+    def clear_list_box(self):
+        """
+        Clear all items from the listbox
+        :return:
+        """
+        self.list_box_files.delete(0, 'end')
+        self.file_path.clear()
+
+    def cancel_convert(self):
+        """
+        Cancel the conversation
+        :return:
+        """
+        stop_convert = messagebox.askokcancel('Cancel Convert', 'Do you really want to stop the conversation?')
+        if stop_convert:
+            self.btn_stop_convert['state'] = 'disable'
+            self.btn_stop_convert['text'] = 'STOPPING'
+            self.status_convert = False
 
     def open_file(self):
         """
-        Opens a box to select files
+       Opens a box to select files, and inserts the files into a listbox
         :return:
         """
-        path = filedialog.askopenfilenames(filetypes=(('Mp4 files', '*.mp4'),
-                                                      ('All files', '*.*')))
+        path = filedialog.askopenfilenames(filetypes=(('all files', '*.*'),))
         if path != '' and path != ():
-            self.file_path = path
-            self.file_name = self.get_name_file(path)
-            self.message_name_file['text'] = self.file_name
-            self.btn_convert['state'] = 'normal'
+            path = list(path)
+            self.btn_start_convert.config(state=tkinter.NORMAL)
+            self.btn_remove.config(state=tkinter.NORMAL)
+            self.btn_clear.config(state=tkinter.NORMAL)
 
-    def _convert(self):
+            # Insert the files in the listbox and in the self.file_path variable
+            for file in path:
+                self.file_path.append(file)
+                self.list_box_files.insert('end', file)
+
+        else:
+            self.btn_start_convert.config(state=tkinter.DISABLED)
+            self.btn_remove.config(state=tkinter.DISABLED)
+            self.btn_clear.config(state=tkinter.DISABLED)
+
+    def _convert(self, *args):
         """
-        Check how many files will be converted. And starts the thread for each type
-        :return:
+        Call the conversation function
+        :param args: None
+        :return: converted file
         """
-        if len(self.file_path) == 1:
-            save_file = filedialog.asksaveasfilename(defaultextension="mp3",
-                                                     initialfile=self.file_name.replace('.mp4', '.mp3'))
-            if save_file != '' and save_file != ():
-                start_new_thread(self.mp4_to_mp3, (self.file_path[0], save_file))
+        _none = args
+        if self.variable_out_file.get() == 0:
+            messagebox.showerror('Error', 'Please, Select a OUT FILE')
         else:
             save_file = filedialog.askdirectory()
             if save_file != '' and save_file != ():
-                start_new_thread(self.mp4_to_mp3, (self.file_path, save_file))
+                self._start_conversion()
+
+                for pos, file_in in enumerate(self.file_path):
+                    name = self.get_file_name(file_in)  # Get the file name
+                    extension = self.get_extension(name)  # Get the file extension
+                    mp3_file_out = f'{save_file}/{name.replace(f".{extension}", ".mp3")}'
+                    mp4_file_out = f'{save_file}/{name.replace(f".{extension}", ".mp4")}'
+
+                    self.list_box_files.itemconfig(pos, fg='gray')  # Change the foreground of the file being converted
+
+                    try:
+                        if self.variable_out_file.get() == 1:
+                            self.to_mp3(file_in, mp3_file_out)
+                        elif self.variable_out_file.get() == 2:
+                            self.to_mp4(file_in, mp4_file_out)
+                    except KeyError:
+                        self.list_box_files.itemconfig(pos, fg='red')
+                    else:
+                        self.list_box_files.itemconfig(pos, fg='green')
+
+                    if not self.status_convert:
+                        break
+                self._conversion_finished()
+
+    def convert(self):
+        """
+        Start a new thread for the conversion
+        :return:
+        """
+        start_new_thread(self._convert, (None, None))
 
     @staticmethod
-    def get_name_file(path):
+    def get_extension(file_name: str) -> str:
+        """
+        Get the file extension
+        :param file_name: file_name
+        :return: file extension
+        """
+        return file_name.split('.')[-1]
+
+    @staticmethod
+    def get_file_name(file_path: str) -> str:
         """
         Get the filename in the selected path
-        :param path: Selected path
+        :param file_path: file_path
         :return: File name
         """
-        if type(path) == tuple:
-            return f'{path[0].split("/")[len(path[0].split("/")) - 1]}'
-        else:
-            return f'{path.split("/")[len(path.split("/")) - 1]}'
+        return f'{file_path.split("/")[-1]}'
 
-    def start(self):
+    def set_progress_callback(self, percent: str):
+        """
+        Set the download progress bar
+        :param percent: Progress bar percentage
+        :return:
+        """
+        self.progress_bar['value'] = percent
+
+    def start_mainloop(self):
         """
         Start tkinter mainloop
         :return:
@@ -155,6 +297,47 @@ class Convert:
         self.root.mainloop()
 
 
+class Main(TqdmProgressBarLogger, Gui):
+    """
+    The moviepy library doesn't have a native write_audiofile callback function,
+    so Proglog.TqdmProgressBarLogger is used to capture the progress bar
+    """
+
+    def callback(self, **changes):
+        """
+        Every time the logger message is updated, this function is called.
+        But we don't want messages in the terminal. So here she does nothing.
+        :param changes:
+        :return: None
+        """
+        pass
+
+    def bars_callback(self, bar, attr, value, old_value=None):
+        """
+        Every time the progress of the recorder is updated, this function is called.
+        Then we capture the progress bar percentage and pass it to a tkinter widget
+        :param bar: progress bar name
+        :param attr: OrderedDict attribute that contains the current value of the progress bar
+        :param value: current bar value
+        :param old_value: None
+        :return:
+        """
+        percentage = str((value / self.bars[bar]['total']) * 100).split('.')[0]
+        self.set_progress_callback(percent=percentage)
+
+    def start_gui(self):
+        """
+        Start the graphical interface
+        :return:
+        """
+        Gui.__init__(self)
+        self.start_mainloop()
+
+
+class Convert(Main):
+    pass
+
+
 if __name__ == '__main__':
     main = Convert()
-    main.start()
+    main.start_gui()
