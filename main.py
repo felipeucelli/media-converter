@@ -178,6 +178,10 @@ class Gui:
         if pos != ():
             self.list_box_files.delete(pos)
             self.file_path.pop(pos[0])
+        if self.list_box_files.size() == 0:
+            self.btn_start_convert['state'] = 'disable'
+            self.btn_remove['state'] = 'disable'
+            self.btn_clear['state'] = 'disable'
 
     def clear_list_box(self):
         """
@@ -186,6 +190,9 @@ class Gui:
         """
         self.list_box_files.delete(0, 'end')
         self.file_path.clear()
+        self.btn_start_convert['state'] = 'disable'
+        self.btn_remove['state'] = 'disable'
+        self.btn_clear['state'] = 'disable'
 
     def cancel_convert(self):
         """
@@ -228,7 +235,7 @@ class Gui:
         """
         _none = args
         if self.variable_out_file.get() == 0:
-            messagebox.showerror('Error', 'Please, Select a OUT FILE')
+            messagebox.showerror('Error', 'Please, Select a Output File')
         else:
             save_file = filedialog.askdirectory()
             if save_file != '' and save_file != ():
