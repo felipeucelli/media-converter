@@ -254,7 +254,7 @@ class Gui:
                             self.to_mp3(file_in, mp3_file_out)
                         elif self.variable_out_file.get() == 2:
                             self.to_mp4(file_in, mp4_file_out)
-                    except KeyError:
+                    except (KeyError, IOError):
                         self.list_box_files.itemconfig(pos, fg='red')
                     else:
                         self.list_box_files.itemconfig(pos, fg='green')
