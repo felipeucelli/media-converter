@@ -2,7 +2,7 @@
 A simple video and audio file converter gui
 
 ## Description
-This application uses the moviepy library to convert audio and video files
+This application uses the ffmpeg binary to convert audio and video files
 
 You can convert various audio and media files to mp3 or mp4 formats
 
@@ -24,5 +24,5 @@ $ python3 main.py
 ## Prerequisites
 * [Python3](https://www.python.org)
 * [Tkinter](https://docs.python.org/3/library/tkinter.html)
-* [Moviepy](https://zulko.github.io/moviepy/)
-* [Proglog](https://github.com/Edinburgh-Genome-Foundry/Proglog)
+* [Imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg)
+* [ffmpeg_progress_yield](https://github.com/slhck/ffmpeg-progress-yield)

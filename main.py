@@ -4,13 +4,13 @@
 # @github: github.com/felipeucelli
 
 # Built-in
+import os
 import tkinter
 from _thread import start_new_thread
 from tkinter import filedialog, messagebox, ttk
 
-from proglog import TqdmProgressBarLogger
-from moviepy.video.io.VideoFileClip import VideoFileClip
-from moviepy.audio.io.AudioFileClip import AudioFileClip
+from imageio_ffmpeg import get_ffmpeg_exe
+from ffmpeg_progress_yield import FfmpegProgress
 
 
 class Gui:
@@ -145,29 +145,50 @@ class Gui:
         self.btn_stop_convert['text'] = 'STOP'
         self.status_convert = True
 
-    @staticmethod
-    def to_mp4(file_in: str, file_out: str) -> '.mp4 file':
+    def run_ffmpeg(self, command: list):
+        """
+        Run the ffmpeg binary and get stdout to generate a progress bar using the ffmpeg_progress_yield library
+        :param command: List containing the parameters to be passed to ffmpeg
+        :return:
+        """
+        ffmpeg = FfmpegProgress(command)
+        for progress in ffmpeg.run_command_with_progress():
+            self.set_progress_callback(str(progress))
+
+    @property
+    def ffmpeg_path(self) -> str:
+        """
+        Get the ffmpeg binary and adapt it to linux and Windows systems
+        :return: Returns the full path of the binary
+        """
+        path = f'{get_ffmpeg_exe()}'
+        if os.name != 'nt':
+            ffmpeg = path.split('/')[-1]
+            path = path.replace(ffmpeg, f'./{ffmpeg}')
+
+        return path
+
+    def to_mp4(self, file_in: str, file_out: str):
         """
         Convert video files using moviepy library
         :param file_in: Full path of the file to be converted
         :param file_out: Output file full path
         :return:
         """
-        mp4_without_frames = VideoFileClip(file_in)
-        mp4_without_frames.write_videofile(file_out, verbose=False, logger=main)
-        mp4_without_frames.close()
+        command = [self.ffmpeg_path, '-y', '-i', file_in, '-c:v', 'copy', file_out]
 
-    @staticmethod
-    def to_mp3(file_in: str, file_out: str) -> '.mp3 file':
+        self.run_ffmpeg(command=command)
+
+    def to_mp3(self, file_in: str, file_out: str):
         """
         Convert audio files using moviepy library
         :param file_in: Full path of the file to be converted
         :param file_out: Output file full path
         :return:
         """
-        without_frames = AudioFileClip(file_in)
-        without_frames.write_audiofile(file_out, verbose=False, logger=main)
-        without_frames.close()
+        command = [self.ffmpeg_path, '-y', '-i', file_in,  '-vn', file_out]
+
+        self.run_ffmpeg(command=command)
 
     def remove_item_list_box(self):
         """
@@ -254,7 +275,7 @@ class Gui:
                             self.to_mp3(file_in, mp3_file_out)
                         elif self.variable_out_file.get() == 2:
                             self.to_mp4(file_in, mp4_file_out)
-                    except (KeyError, IOError):
+                    except (KeyError, IOError, RuntimeError):
                         self.list_box_files.itemconfig(pos, fg='red')
                     else:
                         self.list_box_files.itemconfig(pos, fg='green')
@@ -304,40 +325,12 @@ class Gui:
         self.root.mainloop()
 
 
-class Main(TqdmProgressBarLogger, Gui):
-    """
-    The moviepy library doesn't have a native write_audiofile callback function,
-    so Proglog.TqdmProgressBarLogger is used to capture the progress bar
-    """
-
-    def callback(self, **changes):
-        """
-        Every time the logger message is updated, this function is called.
-        But we don't want messages in the terminal. So here she does nothing.
-        :param changes:
-        :return: None
-        """
-        pass
-
-    def bars_callback(self, bar, attr, value, old_value=None):
-        """
-        Every time the progress of the recorder is updated, this function is called.
-        Then we capture the progress bar percentage and pass it to a tkinter widget
-        :param bar: progress bar name
-        :param attr: OrderedDict attribute that contains the current value of the progress bar
-        :param value: current bar value
-        :param old_value: None
-        :return:
-        """
-        percentage = str((value / self.bars[bar]['total']) * 100).split('.')[0]
-        self.set_progress_callback(percent=percentage)
-
+class Main(Gui):
     def start_gui(self):
         """
         Start the graphical interface
         :return:
         """
-        Gui.__init__(self)
         self.start_mainloop()
 
 
