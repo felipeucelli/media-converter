@@ -21,10 +21,7 @@ class Gui:
         self.root.resizable(False, False)
 
         self.file_path = []
-        self.file_extension = ''
         self.status_convert = True
-
-        self.variable_out_file = tkinter.IntVar()
 
         self.style_root = ttk.Style(self.root)
         self.style_root.configure('TButton', font=('Arial', 15))
@@ -33,7 +30,24 @@ class Gui:
         self.style_root.map('btn_stop_convert.TButton', foreground=[('!disabled', 'red'), ('disabled', 'grey')])
         self.style_root.map('btn_start_convert.TButton', foreground=[('!disabled', 'green'), ('disabled', 'grey')])
 
+        # format and parameter for conversion (only the parameters, None, if there is no parameter)
+        self.formats = {
+            'mp4': '-c:v copy',
+            'mpeg': '-c:v mpeg2video -q:v 2 -c:a libmp3lame',
+            'mp3': '-vn',
+            'wav': '-acodec pcm_s16le -ar 44100',
+            'mkv': '-c copy',
+            'mov': '-acodec copy -vcodec copy -f mov',
+            'flv': '-c:v libx264 -ar 44100 -crf 28',
+            'webm': '-c:v libvpx-vp9 -crf 30 -b:v 0 -b:a 128k -c:a libopus'
+        }
+
         self._interface()
+
+        formats = []
+        for item in self.formats.items():
+            formats.append(item[0])
+        self.combo_formats['values'] = formats
 
     def _interface(self):
         """
@@ -53,11 +67,8 @@ class Gui:
         self.btn_add = ttk.Button(self.frame_add, text='ADD FILE', command=self.open_file)
         self.btn_add.pack(pady=15, padx=15, side='left')
 
-        self.radio_bnt_mp3 = ttk.Radiobutton(self.frame_add, text='MP3', variable=self.variable_out_file, value=1)
-        self.radio_bnt_mp3.pack(side='right', padx=15)
-
-        self.radio_bnt_mp4 = ttk.Radiobutton(self.frame_add, text='MP4', variable=self.variable_out_file, value=2)
-        self.radio_bnt_mp4.pack(side='right', padx=15)
+        self.combo_formats = ttk.Combobox(self.frame_add, state='readonly', font='Arial 12')
+        self.combo_formats.pack(side='right')
 
         self.label_out_file = tkinter.Label(self.frame_add, font='arial 12', text='OUTPUT: ')
         self.label_out_file.pack(side='right', padx=15)
@@ -99,7 +110,7 @@ class Gui:
         self.btn_remove.pack(anchor='nw', side='left', pady=20, padx=5)
         self.btn_remove.config(state=tkinter.DISABLED)
 
-        self.btn_start_convert = ttk.Button(self.frame_convert, text='CONVERT', command=self.convert,
+        self.btn_start_convert = ttk.Button(self.frame_convert, text='CONVERT', command=self.convert_file,
                                             style='btn_start_convert.TButton')
         self.btn_start_convert.pack(anchor='ne', side='right', pady=20, padx=5)
         self.btn_start_convert.config(state=tkinter.DISABLED)
@@ -115,8 +126,7 @@ class Gui:
         :return:
         """
         self.btn_add['state'] = status
-        self.radio_bnt_mp4['state'] = status
-        self.radio_bnt_mp3['state'] = status
+        self.combo_formats['state'] = status
         self.btn_start_convert['state'] = status
         self.btn_remove['state'] = status
         self.btn_clear['state'] = status
@@ -168,27 +178,30 @@ class Gui:
 
         return path
 
-    def to_mp4(self, file_in: str, file_out: str):
+    def convert(self, parameter: list):
         """
         Convert video files using moviepy library
-        :param file_in: Full path of the file to be converted
-        :param file_out: Output file full path
+        :param parameter: Command line for ffmpeg
         :return:
         """
-        command = [self.ffmpeg_path, '-y', '-i', file_in, '-c:v', 'copy', file_out]
-
+        command = [self.ffmpeg_path, *parameter]
         self.run_ffmpeg(command=command)
 
-    def to_mp3(self, file_in: str, file_out: str):
+    @staticmethod
+    def generate_command(file_in: str, selected: str, formats: dict, file_out: str, ) -> list:
         """
-        Convert audio files using moviepy library
-        :param file_in: Full path of the file to be converted
-        :param file_out: Output file full path
-        :return:
+        Generate the command line to be passed to ffmpeg
+        :param file_in:Full path of input file
+        :param selected: selected format
+        :param formats: Dictionaries with formats and parameters
+        :param file_out: Full path of the output file
+        :return: Returns a list with the generated command
         """
-        command = [self.ffmpeg_path, '-y', '-i', file_in,  '-vn', file_out]
-
-        self.run_ffmpeg(command=command)
+        if formats[selected] is None:
+            command = ['-y', '-i', file_in, file_out]
+        else:
+            command = ['-y', '-i', file_in, *formats[selected].split(' '), file_out]
+        return command
 
     def remove_item_list_box(self):
         """
@@ -255,7 +268,7 @@ class Gui:
         :return: converted file
         """
         _none = args
-        if self.variable_out_file.get() == 0:
+        if self.combo_formats.get() == '':
             messagebox.showerror('Error', 'Please, Select a Output File')
         else:
             save_file = filedialog.askdirectory()
@@ -265,16 +278,13 @@ class Gui:
                 for pos, file_in in enumerate(self.file_path):
                     name = self.get_file_name(file_in)  # Get the file name
                     extension = self.get_extension(name)  # Get the file extension
-                    mp3_file_out = f'{save_file}/{name.replace(f".{extension}", ".mp3")}'
-                    mp4_file_out = f'{save_file}/{name.replace(f".{extension}", ".mp4")}'
+                    file_out = f'{save_file}/{name.replace(f".{extension}", f".{self.combo_formats.get()}")}'
 
                     self.list_box_files.itemconfig(pos, fg='gray')  # Change the foreground of the file being converted
 
                     try:
-                        if self.variable_out_file.get() == 1:
-                            self.to_mp3(file_in, mp3_file_out)
-                        elif self.variable_out_file.get() == 2:
-                            self.to_mp4(file_in, mp4_file_out)
+                        command = self.generate_command(file_in, str(self.combo_formats.get()), self.formats, file_out)
+                        self.convert(parameter=command)
                     except (KeyError, IOError, RuntimeError):
                         self.list_box_files.itemconfig(pos, fg='red')
                     else:
@@ -284,7 +294,7 @@ class Gui:
                         break
                 self._conversion_finished()
 
-    def convert(self):
+    def convert_file(self):
         """
         Start a new thread for the conversion
         :return:

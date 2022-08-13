@@ -4,7 +4,7 @@ A simple video and audio file converter gui
 ## Description
 This application uses the ffmpeg binary to convert audio and video files
 
-You can convert various audio and media files to mp3 or mp4 formats
+You can convert various video and audio files
 
 Fully compatible with Windows and Linux systems (MacOS not tested).
 
