@@ -5,6 +5,7 @@
 
 # Built-in
 import os
+import json
 import tkinter
 from _thread import start_new_thread
 from tkinter import filedialog, messagebox, ttk
@@ -39,10 +40,13 @@ class Gui:
             'mkv': '-c copy',
             'mov': '-acodec copy -vcodec copy -f mov',
             'flv': '-c:v libx264 -ar 44100 -crf 28',
-            'webm': '-c:v libvpx-vp9 -crf 30 -b:v 0 -b:a 128k -c:a libopus'
+            'webm': '-c:v libvpx-vp9 -crf 30 -b:v 0 -b:a 128k -c:a libopus',
         }
 
+        self.formats_backup = self.formats
+
         self._interface()
+        self._create_menu()
 
         formats = []
         for item in self.formats.items():
@@ -119,6 +123,77 @@ class Gui:
                                            style='btn_stop_convert.TButton')
         self.btn_stop_convert.pack(anchor='ne', side='right', pady=20, padx=5)
         self.btn_stop_convert.config(state=tkinter.DISABLED)
+
+    def _create_menu(self):
+        """
+        Function responsible for creating the menu tab in the tkinter interface
+        :return:
+        """
+        self.new_menu = tkinter.Menu(self.root)
+        self.option_menu = tkinter.Menu(self.new_menu, tearoff=0)
+        self.new_menu.add_cascade(label='Options', menu=self.option_menu)
+        self.option_menu.add_command(label='Config', command=lambda: self._config())
+        self.option_menu.add_separator()
+        self.option_menu.add_command(label='Exit', command=lambda: self.root.destroy())
+        self.root.config(menu=self.new_menu)
+
+    def _config(self):
+
+        def set_combo():
+            raw = text.get('1.0', tkinter.END)
+
+            try:
+                new_formats = json.loads(raw.replace('\'', '\"'))
+            except Exception as error:
+                messagebox.showerror('Error', str(error), parent=top_level)
+            else:
+                self.formats = new_formats
+
+                insert_formats = []
+                for item in self.formats.items():
+                    insert_formats.append(item[0])
+                self.combo_formats['values'] = insert_formats
+
+                top_level.destroy()
+
+        def reset_combo():
+            self.formats = self.formats_backup
+            insert_formats = []
+            for item in self.formats.items():
+                insert_formats.append(item[0])
+            self.combo_formats['values'] = insert_formats
+
+            top_level.destroy()
+
+        top_level = tkinter.Toplevel()
+        top_level.resizable(False, False)
+
+        text = tkinter.Text(top_level)
+        text.grid(columnspan=5, row=0)
+
+        formats = ''
+        for c in str(self.formats):
+            if c == ',':
+                c += '\n'
+            formats += c
+
+        text.insert(tkinter.END, str(formats))
+
+        tkinter.Button(top_level, font='Arial 12', text='CLOSE', command=lambda: top_level.destroy())\
+            .grid(column=1, row=1)
+
+        tkinter.Button(top_level, font='Arial 12', text='APPLY', command=lambda: set_combo())\
+            .grid(column=2, row=1)
+
+        tkinter.Button(top_level, font='Arial 12', text='RESET', command=lambda: reset_combo())\
+            .grid(column=3, row=1)
+
+        top_level.transient(self.root)
+        top_level.wait_visibility()
+        top_level.grab_set()
+        self.root.wait_window(top_level)
+
+        top_level.mainloop()
 
     def change_interface_status(self, status: str):
         """
@@ -197,7 +272,7 @@ class Gui:
         :param file_out: Full path of the output file
         :return: Returns a list with the generated command
         """
-        if formats[selected] is None:
+        if formats[selected].upper() == 'NONE':
             command = ['-y', '-i', file_in, file_out]
         else:
             command = ['-y', '-i', file_in, *formats[selected].split(' '), file_out]
