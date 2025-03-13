@@ -1,0 +1,11 @@
+
+.idea/
+venv/
+*.mp4
+*.mp3
+*.mpeg
+*.wav
+*.mkv
+*.mov
+*.flv
+*.webm

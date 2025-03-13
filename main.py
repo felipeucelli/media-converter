@@ -33,14 +33,14 @@ class Gui:
 
         # format and parameter for conversion (only the parameters, None, if there is no parameter)
         self.formats = {
-            'mp4': '-c:v copy',
-            'mpeg': '-c:v mpeg2video -q:v 2 -c:a libmp3lame',
-            'mp3': '-vn',
-            'wav': '-acodec pcm_s16le -ar 44100',
-            'mkv': '-c copy',
-            'mov': '-acodec copy -vcodec copy -f mov',
-            'flv': '-c:v libx264 -ar 44100 -crf 28',
-            'webm': '-c:v libvpx-vp9 -crf 30 -b:v 0 -b:a 128k -c:a libopus',
+            'mp4': '-i file -c:v copy',
+            'mpeg': '-i file -c:v mpeg2video -q:v 2 -c:a libmp3lame',
+            'mp3': '-i file -vn',
+            'wav': '-i file -acodec pcm_s16le -ar 44100',
+            'mkv': '-i file -c copy',
+            'mov': '-i file -acodec copy -vcodec copy -f mov',
+            'flv': '-i file -c:v libx264 -ar 44100 -crf 28',
+            'webm': '-i file -c:v libvpx-vp9 -crf 30 -b:v 0 -b:a 128k -c:a libopus',
         }
 
         self.formats_backup = self.formats
@@ -275,7 +275,9 @@ class Gui:
         if formats[selected].upper() == 'NONE':
             command = ['-y', '-i', file_in, file_out]
         else:
-            command = ['-y', '-i', file_in, *formats[selected].split(' '), file_out]
+            custom_format = [*formats[selected].split(' ')]
+            custom_format[custom_format.index('-i') + 1] = file_in
+            command = ['-y', *custom_format, file_out]
         return command
 
     def remove_item_list_box(self):
